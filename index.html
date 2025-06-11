@@ -122,26 +122,26 @@
                 Submit Survey
             </button>
         </div>
+    </div>
 
-        <!-- Submission confirmation modal -->
-        <div id="confirmation-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center hidden z-50">
-            <div class="bg-white p-8 rounded-lg shadow-xl w-96 text-center transform transition-all duration-300 scale-95">
-                <h2 class="text-2xl font-bold text-blue-800 mb-4">Survey Submitted!</h2>
-                <p class="text-gray-700 mb-6">Thank you folks for completing the survey!</p>
-                <button id="close-modal-btn" class="bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 transition-colors duration-200">
-                    Close
-                </button>
-            </div>
+    <!-- Submission confirmation modal (re-added for styled alert) -->
+    <div id="confirmation-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-8 rounded-lg shadow-xl w-96 text-center transform transition-all duration-300 scale-95">
+            <h2 class="text-2xl font-bold text-blue-800 mb-4">Survey Submitted!</h2>
+            <p class="text-gray-700 mb-6">Thank you folks for completing the survey!</p>
+            <button id="close-modal-btn" class="bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 transition-colors duration-200">
+                Close
+            </button>
         </div>
+    </div>
 
-        <!-- Generic Message Modal -->
-        <div id="message-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center hidden z-50">
-            <div class="message-modal-content">
-                <p id="message-text" class="text-gray-700 mb-4"></p>
-                <button id="close-message-modal-btn" class="bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75">
-                    OK
-                </button>
-            </div>
+    <!-- Generic Message Modal (for validation and Firebase errors) -->
+    <div id="message-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center hidden z-50">
+        <div class="message-modal-content">
+            <p id="message-text" class="text-gray-700 mb-4"></p>
+            <button id="close-message-modal-btn" class="bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75">
+                OK
+            </button>
         </div>
     </div>
 
@@ -166,7 +166,7 @@
         //      apiKey: "AIzaSyB-YOUR_ACTUAL_API_KEY",
         //      authDomain: "your-actual-project-id.firebaseapp.com",
         //      projectId: "your-actual-project-id",
-        //      storageBucket: "ai-survey-data-collection-grp3.firebasestorage.app",
+        //      storageBucket: "your-actual-project-id.appspot.com",
         //      messagingSenderId: "1234567890",
         //      appId: "1:234567890:web:abcdef1234567890abcdef"
         //      // measurementId: "G-XXXXXXXXXX" // Include if you have Google Analytics enabled
@@ -191,6 +191,30 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
         let userId = null; // Will be set after auth state is ready
+
+        // Get references to modals and their close buttons
+        const confirmationModal = document.getElementById('confirmation-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const messageModal = document.getElementById('message-modal');
+        const messageText = document.getElementById('message-text');
+        const closeMessageModalBtn = document.getElementById('close-message-modal-btn');
+
+        /**
+         * Displays a generic message modal to the user.
+         * @param {string} message - The message to display.
+         */
+        function showMessageModal(message) {
+            messageText.textContent = message;
+            messageModal.classList.remove('hidden');
+            messageModal.style.display = 'flex'; // Ensure it's flex
+        }
+
+        // Event listener for closing the generic message modal
+        closeMessageModalBtn.addEventListener('click', () => {
+            messageModal.classList.add('hidden');
+            messageModal.style.display = 'none'; // Ensure it's none
+        });
+
 
         // Authenticate with Firebase (Anonymous login for simplicity for external hosting)
         onAuthStateChanged(auth, async (user) => {
@@ -307,6 +331,7 @@
                 options: ['Yes', 'No']
             },
             {
+
                 id: 'q15',
                 question: 'Do you think companies should inform employees clearly about the extent of surveillance?',
                 type: 'radio',
@@ -348,29 +373,8 @@
         const prevBtn = document.getElementById('prev-btn');
         const nextBtn = document.getElementById('next-btn');
         const submitBtn = document.getElementById('submit-btn');
-        const confirmationModal = document.getElementById('confirmation-modal');
-        const closeModalBtn = document.getElementById('close-modal-btn');
+        const surveyContainer = document.getElementById('survey-container'); // Get reference to survey container
         const completionBar = document.getElementById('completion-bar'); // Get reference to the completion bar
-
-        const messageModal = document.getElementById('message-modal');
-        const messageText = document.getElementById('message-text');
-        const closeMessageModalBtn = document.getElementById('close-message-modal-btn');
-
-
-        /**
-         * Displays a generic message modal to the user.
-         * @param {string} message - The message to display.
-         */
-        function showMessageModal(message) {
-            messageText.textContent = message;
-            messageModal.classList.remove('hidden');
-            messageModal.style.display = 'flex'; // Ensure it's flex
-        }
-
-        closeMessageModalBtn.addEventListener('click', () => {
-            messageModal.classList.add('hidden');
-            messageModal.style.display = 'none'; // Ensure it's none
-        });
 
         /**
          * Updates the width of the completion bar based on current progress.
@@ -643,7 +647,6 @@
             if (!userId) {
                 console.warn("userId not yet available, waiting for authentication...");
                 // Add a listener or a retry mechanism if this happens often.
-                // For now, we'll just show a message.
                 showMessageModal("Initializing Firebase. Please try submitting again in a moment.");
                 return;
             }
@@ -656,7 +659,7 @@
                     timestamp: new Date().toISOString() // Add a timestamp
                 });
                 console.log("Survey data saved to Firestore!");
-                showMessageModal("Survey data saved successfully!");
+                // No alert here, success message is handled by the main "Thank You" modal
             } catch (error) {
                 console.error("Error saving survey data to Firestore:", error);
                 showMessageModal(`Error saving data: ${error.message}`);
@@ -694,12 +697,13 @@
             console.log("Survey submitted! Answers:", finalAnswers);
 
             // Save data to Firestore
+            // The success/failure message for saving data will be shown via showMessageModal from saveSurveyData
             saveSurveyData(finalAnswers);
 
-            // Display the confirmation modal
+            // Display the "Thank You" confirmation modal
             if (confirmationModal) {
-                confirmationModal.style.display = 'flex';
-                confirmationModal.classList.remove('hidden'); 
+                confirmationModal.classList.remove('hidden');
+                confirmationModal.style.display = 'flex'; // Ensure it's flex for overlay
             } else {
                 console.error("Confirmation modal element not found!");
             }
@@ -712,11 +716,13 @@
         nextBtn.addEventListener('click', nextQuestion);
         prevBtn.addEventListener('click', prevQuestion);
         submitBtn.addEventListener('click', submitSurvey);
+        
+        // Event listener for closing the main "Thank You" confirmation modal
         closeModalBtn.addEventListener('click', () => {
             confirmationModal.classList.add('hidden');
             confirmationModal.style.display = 'none'; // Ensure it's hidden properly
-            // Optionally, reset the survey or redirect the user
-            // window.location.reload(); // To reset the page
+            // Optionally, reset the survey or redirect the user for a new survey
+            // window.location.reload(); 
         });
 
         // Initial render
