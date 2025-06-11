@@ -86,6 +86,16 @@
             width: 0%; /* Initial width */
             transition: width 0.3s ease-in-out; /* Smooth transition for width changes */
         }
+
+        /* Generic Message Modal Styles */
+        .message-modal-content {
+            background-color: #fff;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            width: 20rem; /* w-80 */
+            text-align: center;
+        }
     </style>
 </head>
 <body class="flex items-center justify-center min-h-screen p-4">
@@ -123,9 +133,65 @@
                 </button>
             </div>
         </div>
+
+        <!-- Generic Message Modal -->
+        <div id="message-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center hidden z-50">
+            <div class="message-modal-content">
+                <p id="message-text" class="text-gray-700 mb-4"></p>
+                <button id="close-message-modal-btn" class="bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75">
+                    OK
+                </button>
+            </div>
+        </div>
     </div>
 
-    <script>
+    <script type="module">
+        // Firebase imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Configuration (REPLACE WITH YOUR OWN FIREBASE CONFIG IF HOSTING OUTSIDE CANVAS)
+        // For Canvas environment, these global variables are typically provided.
+        // If hosting directly on GitHub Pages with your own Firebase project,
+        // replace `typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {}`
+        // with your actual Firebase config object: const firebaseConfig = { apiKey: "...", authDomain: "...", projectId: "...", ... };
+        const firebaseConfig = const firebaseConfig = {
+    apiKey: "AIzaSyAxm_sFcB1B0JLb9SZLddnXVGOI2TS9e94",
+    authDomain: "ai-survey-data-collection-grp3.firebaseapp.com",
+    projectId: "ai-survey-data-collection-grp3",
+    storageBucket: "ai-survey-data-collection-grp3.firebasestorage.app",
+    messagingSenderId: "771071215564",
+    appId: "1:771071215564:web:d1d99f5be6d02d6f893f69"
+  };
+        const appId = firebaseConfig.projectId;
+        //const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; // Used for Canvas auth
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        let userId = null; // Will be set after auth state is ready
+
+        // Authenticate with Firebase (Anonymous login for simplicity for external hosting)
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                console.log("Firebase authenticated. User ID:", userId);
+            } else {
+                try {
+                    // Always try to sign in anonymously if no user is authenticated
+                    await signInAnonymously(auth);
+                    userId = auth.currentUser.uid;
+                    console.log("Signed in anonymously. User ID:", userId);
+                } catch (error) {
+                    console.error("Firebase authentication error:", error);
+                    showMessageModal(`Authentication Error: ${error.message}`);
+                }
+            }
+        });
+
+
         const questions = [
             {
                 id: 'q1',
@@ -265,6 +331,26 @@
         const confirmationModal = document.getElementById('confirmation-modal');
         const closeModalBtn = document.getElementById('close-modal-btn');
         const completionBar = document.getElementById('completion-bar'); // Get reference to the completion bar
+
+        const messageModal = document.getElementById('message-modal');
+        const messageText = document.getElementById('message-text');
+        const closeMessageModalBtn = document.getElementById('close-message-modal-btn');
+
+
+        /**
+         * Displays a generic message modal to the user.
+         * @param {string} message - The message to display.
+         */
+        function showMessageModal(message) {
+            messageText.textContent = message;
+            messageModal.classList.remove('hidden');
+            messageModal.style.display = 'flex'; // Ensure it's flex
+        }
+
+        closeMessageModalBtn.addEventListener('click', () => {
+            messageModal.classList.add('hidden');
+            messageModal.style.display = 'none'; // Ensure it's none
+        });
 
         /**
          * Updates the width of the completion bar based on current progress.
@@ -505,8 +591,7 @@
             if (currentQuestionData.type === 'radio') {
                 const selectedOption = userAnswers[currentQuestionData.id];
                 if (!selectedOption) {
-                    // For a user-friendly app, you'd show a temporary message or highlight the options
-                    console.log("Please select an option before proceeding.");
+                    showMessageModal("Please select an option before proceeding.");
                     return; // Prevent moving to next question
                 }
             }
@@ -526,6 +611,30 @@
             if (currentQuestionIndex > 0) {
                 currentQuestionIndex--;
                 renderQuestion();
+            }
+        }
+
+        /**
+         * Saves survey data to Firestore.
+         * @param {object} data - The survey answers to save.
+         */
+        async function saveSurveyData(data) {
+            if (!userId) {
+                showMessageModal("User not authenticated. Cannot save data. Please try refreshing the page.");
+                return;
+            }
+            try {
+                // Collection path: /artifacts/{appId}/users/{userId}/surveyResponses
+                const surveyCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/surveyResponses`);
+                await addDoc(surveyCollectionRef, {
+                    ...data,
+                    timestamp: new Date().toISOString() // Add a timestamp
+                });
+                console.log("Survey data saved to Firestore!");
+                showMessageModal("Survey data saved successfully!");
+            } catch (error) {
+                console.error("Error saving survey data to Firestore:", error);
+                showMessageModal(`Error saving data: ${error.message}`);
             }
         }
 
@@ -559,8 +668,10 @@
 
             console.log("Survey submitted! Answers:", finalAnswers);
 
+            // Save data to Firestore
+            saveSurveyData(finalAnswers);
+
             // Display the confirmation modal
-            // Force display to flex to ensure it overrides any conflicting 'display: none'
             if (confirmationModal) {
                 confirmationModal.style.display = 'flex';
                 confirmationModal.classList.remove('hidden'); 
@@ -578,6 +689,7 @@
         submitBtn.addEventListener('click', submitSurvey);
         closeModalBtn.addEventListener('click', () => {
             confirmationModal.classList.add('hidden');
+            confirmationModal.style.display = 'none'; // Ensure it's hidden properly
             // Optionally, reset the survey or redirect the user
             // window.location.reload(); // To reset the page
         });
