@@ -146,560 +146,581 @@
     </div>
 
     <script type="module">
-    // Firebase imports
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // Firebase imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // IMPORTANT: REPLACE THIS `firebaseConfig` OBJECT WITH YOUR ACTUAL FIREBASE PROJECT'S CONFIGURATION.
-    // You can find this in your Firebase Console > Project settings > Your apps > select your web app.
-    const firebaseConfig = {
-    apiKey: "AIzaSyAxm_sFcB1B0JLb9SZLddnXVGOI2TS9e94",
-    authDomain: "ai-survey-data-collection-grp3.firebaseapp.com",
-    projectId: "ai-survey-data-collection-grp3",
-    storageBucket: "ai-survey-data-collection-grp3.firebasestorage.app",
-    messagingSenderId: "771071215564",
-    appId: "1:771071215564:web:d1d99f5be6d02d6f893f69"
-  };
+        // ****************************************************************************************************
+        // IMPORTANT: YOU MUST REPLACE THE ENTIRE `firebaseConfig` OBJECT BELOW WITH YOUR ACTUAL FIREBASE PROJECT'S CONFIGURATION.
+        // Failure to do so will result in "auth/api-key-not-valid" or "auth/configuration-not-found" errors.
+        //
+        // HOW TO GET YOUR firebaseConfig:
+        // 1. Go to your Firebase Console: https://console.firebase.google.com/
+        // 2. Select your project.
+        // 3. Go to "Project settings" (gear icon next to "Project Overview").
+        // 4. Under "Your apps," find and select your web app (or add a new web app if you haven't).
+        // 5. Copy the `firebaseConfig` object provided there and paste it EXACTLY HERE.
+        //    It will look something like this (but with your actual values, DO NOT LEAVE PLACEHOLDERS):
+        //    const firebaseConfig = {
+        //      apiKey: "AIzaSyB-YOUR_ACTUAL_API_KEY",
+        //      authDomain: "your-actual-project-id.firebaseapp.com",
+        //      projectId: "your-actual-project-id",
+        //      storageBucket: "ai-survey-data-collection-grp3.firebasestorage.app",
+        //      messagingSenderId: "1234567890",
+        //      appId: "1:234567890:web:abcdef1234567890abcdef"
+        //      // measurementId: "G-XXXXXXXXXX" // Include if you have Google Analytics enabled
+        //    };
+        // ****************************************************************************************************
+        const firebaseConfig = {
+          apiKey: "AIzaSyAxm_sFcB1B0JLb9SZLddnXVGOI2TS9e94", 
+          authDomain: "ai-survey-data-collection-grp3.firebaseapp.com",
+          projectId: "ai-survey-data-collection-grp3",
+          storageBucket: "ai-survey-data-collection-grp3.firebasestorage.app",
+          messagingSenderId: "771071215564",
+          appId: "1:771071215564:web:d1d99f5be6d02d6f893f69"
+          // measurementId: "PASTE_YOUR_MEASUREMENT_ID_HERE" // Include if you have Google Analytics enabled
+        };
 
-    // Use the projectId from your Firebase config as the appId for Firestore pathing
-    const appId = firebaseConfig.projectId; 
-    // No initialAuthToken is needed when hosting externally with anonymous sign-in
+        // Use the projectId from your Firebase config as the appId for Firestore pathing
+        const appId = firebaseConfig.projectId; 
+        // No initialAuthToken is needed when hosting externally with anonymous sign-in
 
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-    let userId = null; // Will be set after auth state is ready
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        let userId = null; // Will be set after auth state is ready
 
-    // Authenticate with Firebase (Anonymous login for simplicity for external hosting)
-    onAuthStateChanged(auth, async (user) => {
-        if (user) {
-            userId = user.uid;
-            console.log("Firebase authenticated. User ID:", userId);
-        } else {
-            try {
-                // Always try to sign in anonymously if no user is authenticated
-                await signInAnonymously(auth);
-                userId = auth.currentUser.uid;
-                console.log("Signed in anonymously. User ID:", userId);
-            } catch (error) {
-                console.error("Firebase authentication error:", error);
-                showMessageModal(`Authentication Error: ${error.message}`);
+        // Authenticate with Firebase (Anonymous login for simplicity for external hosting)
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                console.log("Firebase authenticated. User ID:", userId);
+            } else {
+                try {
+                    // Always try to sign in anonymously if no user is authenticated
+                    await signInAnonymously(auth);
+                    userId = auth.currentUser.uid;
+                    console.log("Signed in anonymously. User ID:", userId);
+                } catch (error) {
+                    console.error("Firebase authentication error:", error);
+                    // Display a more user-friendly message for configuration issues
+                    showMessageModal(`Firebase setup error: Please ensure your 'firebaseConfig' is correctly set up in index.html and Firebase Authentication (Anonymous) is enabled for your project in the Firebase Console.`);
+                }
             }
-        }
-    });
+        });
 
 
-    const questions = [
-        {
-            id: 'q1',
-            question: 'Gender:',
-            type: 'radio',
-            options: ['Male', 'Female', 'Non-binary', 'Prefer not to say']
-        },
-        {
-            id: 'q2',
-            question: 'Age Group:',
-            type: 'radio',
-            options: ['Under 25', '25–34', '35–44', '45–54', '55 and above']
-        },
-        {
-            id: 'q3',
-            question: 'Industry you work in:',
-            type: 'radio',
-            options: ['IT/Software', 'Finance', 'Healthcare', 'Education', 'Manufacturing', 'Retail', 'Other']
-        },
-        {
-            id: 'q4',
-            question: 'Job Role:',
-            type: 'radio',
-            options: ['Entry-level', 'Mid-level', 'Senior-level', 'Executive', 'Freelancer/Consultant']
-        },
-        {
-            id: 'q5',
-            question: 'Work Model:',
-            type: 'radio',
-            options: ['Work from home', 'Hybrid', 'On-site/Office']
-        },
-        {
-            id: 'q6',
-            question: 'Do you use your personal device (mobile/laptop) for work-related tasks?',
-            type: 'radio',
-            options: ['Yes', 'No']
-        },
-        {
-            id: 'q7',
-            question: 'Are you aware if your company uses AI to monitor your device or online activity?',
-            type: 'radio',
-            options: ['Yes', 'No', 'Not Sure']
-        },
-        {
-            id: 'q8',
-            question: 'If yes, what kind of data is being tracked? (Select all that apply)',
-            type: 'checkbox',
-            options: [
-                'Application usage',
-                'Screen capture',
-                'Location data',
-                'Communication (e.g., emails, messages)',
-                'Not sure',
-                { value: 'Other', hasTextInput: true, placeholder: 'Specify other data...' }
-            ]
-        },
-        {
-            id: 'q9',
-            question: 'Do you feel your personal privacy is being compromised by AI surveillance at work?',
-            type: 'radio',
-            options: ['Yes', 'No', 'Not sure']
-        },
-        {
-            id: 'q10',
-            question: 'How concerned are you about your personal data being accessed through AI surveillance? (1 = Not at all concerned, 5 = Extremely concerned)',
-            type: 'range', // Changed to range type
-            min: 1,
-            max: 5,
-            step: 1
-        },
-        {
-            id: 'q11',
-            question: 'Do you believe AI surveillance should be limited to office devices only?',
-            type: 'radio',
-            options: ['Strongly Agree', 'Agree', 'Neutral', 'Disagree', 'Strongly Disagree']
-        },
-        {
-            id: 'q12',
-            question: 'Has AI surveillance affected your work productivity or mental well-being?',
-            type: 'radio',
-            options: ['Yes, negatively', 'Yes, positively', 'No impact', 'Not sure']
-        },
-        {
-            id: 'q13',
-            question: 'Do you think AI surveillance improves workplace transparency and accountability?',
-            type: 'radio',
-            options: ['Yes', 'No', 'Partially', 'Not sure']
-        },
-        {
-            id: 'q14',
-            question: 'Have you ever changed your behavior at work due to knowing you are being monitored?',
-            type: 'radio',
-            options: ['Yes', 'No']
-        },
-        {
-            id: 'q15',
-            question: 'Do you think companies should inform employees clearly about the extent of surveillance?',
-            type: 'radio',
-            options: ['Yes', 'No', 'Doesn\'t matter to me']
-        },
-        {
-            id: 'q16',
-            question: 'Which of these should be mandatory safeguards if AI surveillance is used? (Select all that apply)',
-            type: 'checkbox',
-            options: [
-                'Employee consent',
-                'Data anonymization',
-                'Clear policy documentation',
-                'Access to personal data logs',
-                'None',
-                { value: 'Other', hasTextInput: true, placeholder: 'Specify other safeguards...' }
-            ]
-        },
-        {
-            id: 'q17',
-            question: 'In your opinion, is there a right balance between employee privacy and workplace monitoring?',
-            type: 'radio',
-            options: ['Strongly Agree', 'Agree', 'Neutral', 'Disagree', 'Strongly Disagree']
-        },
-        {
-            id: 'q18',
-            question: 'How concerned are you about AI usage in the workplace? (1 = Not at all concerned, 5 = Extremely concerned)',
-            type: 'range', // Already a range type
-            min: 1,
-            max: 5,
-            step: 1
-        }
-    ];
+        const questions = [
+            {
+                id: 'q1',
+                question: 'Gender:',
+                type: 'radio',
+                options: ['Male', 'Female', 'Non-binary', 'Prefer not to say']
+            },
+            {
+                id: 'q2',
+                question: 'Age Group:',
+                type: 'radio',
+                options: ['Under 25', '25–34', '35–44', '45–54', '55 and above']
+            },
+            {
+                id: 'q3',
+                question: 'Industry you work in:',
+                type: 'radio',
+                options: ['IT/Software', 'Finance', 'Healthcare', 'Education', 'Manufacturing', 'Retail', 'Other']
+            },
+            {
+                id: 'q4',
+                question: 'Job Role:',
+                type: 'radio',
+                options: ['Entry-level', 'Mid-level', 'Senior-level', 'Executive', 'Freelancer/Consultant']
+            },
+            {
+                id: 'q5',
+                question: 'Work Model:',
+                type: 'radio',
+                options: ['Work from home', 'Hybrid', 'On-site/Office']
+            },
+            {
+                id: 'q6',
+                question: 'Do you use your personal device (mobile/laptop) for work-related tasks?',
+                type: 'radio',
+                options: ['Yes', 'No']
+            },
+            {
+                id: 'q7',
+                question: 'Are you aware if your company uses AI to monitor your device or online activity?',
+                type: 'radio',
+                options: ['Yes', 'No', 'Not Sure']
+            },
+            {
+                id: 'q8',
+                question: 'If yes, what kind of data is being tracked? (Select all that apply)',
+                type: 'checkbox',
+                options: [
+                    'Application usage',
+                    'Screen capture',
+                    'Location data',
+                    'Communication (e.g., emails, messages)',
+                    'Not sure',
+                    { value: 'Other', hasTextInput: true, placeholder: 'Specify other data...' }
+                ]
+            },
+            {
+                id: 'q9',
+                question: 'Do you feel your personal privacy is being compromised by AI surveillance at work?',
+                type: 'radio',
+                options: ['Yes', 'No', 'Not sure']
+            },
+            {
+                id: 'q10',
+                question: 'How concerned are you about your personal data being accessed through AI surveillance? (1 = Not at all concerned, 5 = Extremely concerned)',
+                type: 'range', // Changed to range type
+                min: 1,
+                max: 5,
+                step: 1
+            },
+            {
+                id: 'q11',
+                question: 'Do you believe AI surveillance should be limited to office devices only?',
+                type: 'radio',
+                options: ['Strongly Agree', 'Agree', 'Neutral', 'Disagree', 'Strongly Disagree']
+            },
+            {
+                id: 'q12',
+                question: 'Has AI surveillance affected your work productivity or mental well-being?',
+                type: 'radio',
+                options: ['Yes, negatively', 'Yes, positively', 'No impact', 'Not sure']
+            },
+            {
+                id: 'q13',
+                question: 'Do you think AI surveillance improves workplace transparency and accountability?',
+                type: 'radio',
+                options: ['Yes', 'No', 'Partially', 'Not sure']
+            },
+            {
+                id: 'q14',
+                question: 'Have you ever changed your behavior at work due to knowing you are being monitored?',
+                type: 'radio',
+                options: ['Yes', 'No']
+            },
+            {
+                id: 'q15',
+                question: 'Do you think companies should inform employees clearly about the extent of surveillance?',
+                type: 'radio',
+                options: ['Yes', 'No', 'Doesn\'t matter to me']
+            },
+            {
+                id: 'q16',
+                question: 'Which of these should be mandatory safeguards if AI surveillance is used? (Select all that apply)',
+                type: 'checkbox',
+                options: [
+                    'Employee consent',
+                    'Data anonymization',
+                    'Clear policy documentation',
+                    'Access to personal data logs',
+                    'None',
+                    { value: 'Other', hasTextInput: true, placeholder: 'Specify other safeguards...' }
+                ]
+            },
+            {
+                id: 'q17',
+                question: 'In your opinion, is there a right balance between employee privacy and workplace monitoring?',
+                type: 'radio',
+                options: ['Strongly Agree', 'Agree', 'Neutral', 'Disagree', 'Strongly Disagree']
+            },
+            {
+                id: 'q18',
+                question: 'How concerned are you about AI usage in the workplace? (1 = Not at all concerned, 5 = Extremely concerned)',
+                type: 'range', // Already a range type
+                min: 1,
+                max: 5,
+                step: 1
+            }
+        ];
 
-    let currentQuestionIndex = 0;
-    const userAnswers = {};
+        let currentQuestionIndex = 0;
+        const userAnswers = {};
 
-    const questionDisplay = document.getElementById('question-display');
-    const prevBtn = document.getElementById('prev-btn');
-    const nextBtn = document.getElementById('next-btn');
-    const submitBtn = document.getElementById('submit-btn');
-    const confirmationModal = document.getElementById('confirmation-modal');
-    const closeModalBtn = document.getElementById('close-modal-btn');
-    const completionBar = document.getElementById('completion-bar'); // Get reference to the completion bar
+        const questionDisplay = document.getElementById('question-display');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const submitBtn = document.getElementById('submit-btn');
+        const confirmationModal = document.getElementById('confirmation-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const completionBar = document.getElementById('completion-bar'); // Get reference to the completion bar
 
-    const messageModal = document.getElementById('message-modal');
-    const messageText = document.getElementById('message-text');
-    const closeMessageModalBtn = document.getElementById('close-message-modal-btn');
+        const messageModal = document.getElementById('message-modal');
+        const messageText = document.getElementById('message-text');
+        const closeMessageModalBtn = document.getElementById('close-message-modal-btn');
 
 
-    /**
-     * Displays a generic message modal to the user.
-     * @param {string} message - The message to display.
-     */
-    function showMessageModal(message) {
-        messageText.textContent = message;
-        messageModal.classList.remove('hidden');
-        messageModal.style.display = 'flex'; // Ensure it's flex
-    }
-
-    closeMessageModalBtn.addEventListener('click', () => {
-        messageModal.classList.add('hidden');
-        messageModal.style.display = 'none'; // Ensure it's none
-    });
-
-    /**
-     * Updates the width of the completion bar based on current progress.
-     */
-    function updateCompletionBar() {
-        // Calculate progress: current question index / total questions (adjust for 0-indexed)
-        const progressPercentage = (currentQuestionIndex / (questions.length - 1)) * 100;
-        completionBar.style.width = `${progressPercentage}%`;
-    }
-
-    /**
-     * Renders the current question based on the currentQuestionIndex.
-     */
-    function renderQuestion() {
-        // Clear previous question content
-        questionDisplay.innerHTML = '';
-
-        const questionData = questions[currentQuestionIndex];
-        if (!questionData) {
-            console.error("No question data found for index:", currentQuestionIndex);
-            return;
+        /**
+         * Displays a generic message modal to the user.
+         * @param {string} message - The message to display.
+         */
+        function showMessageModal(message) {
+            messageText.textContent = message;
+            messageModal.classList.remove('hidden');
+            messageModal.style.display = 'flex'; // Ensure it's flex
         }
 
-        // Create question text element
-        const questionText = document.createElement('p');
-        questionText.className = 'text-xl md:text-2xl font-medium text-blue-700 mb-6 text-center';
-        questionText.textContent = questionData.question;
-        questionDisplay.appendChild(questionText);
+        closeMessageModalBtn.addEventListener('click', () => {
+            messageModal.classList.add('hidden');
+            messageModal.style.display = 'none'; // Ensure it's none
+        });
 
-        // Render input based on question type
-        if (questionData.type === 'radio') {
-            questionData.options.forEach(option => {
-                const label = document.createElement('label');
-                label.className = 'flex items-center p-3 mb-3 border border-blue-200 rounded-md cursor-pointer hover:bg-blue-50 transition-colors duration-200 shadow-sm hover:shadow-md';
-                label.innerHTML = `
-                    <input type="radio" name="${questionData.id}" value="${option}" class="mr-3 h-5 w-5 text-blue-600 focus:ring-blue-500 rounded-full cursor-pointer" />
-                    <span class="text-lg text-gray-800">${option}</span>
-                `;
-                questionDisplay.appendChild(label);
+        /**
+         * Updates the width of the completion bar based on current progress.
+         */
+        function updateCompletionBar() {
+            // Calculate progress: current question index / total questions (adjust for 0-indexed)
+            const progressPercentage = (currentQuestionIndex / (questions.length - 1)) * 100;
+            completionBar.style.width = `${progressPercentage}%`;
+        }
 
-                // Pre-select if an answer already exists for this question
-                if (userAnswers[questionData.id] === option) {
-                    label.querySelector(`input[value="${option}"]`).checked = true;
+        /**
+         * Renders the current question based on the currentQuestionIndex.
+         */
+        function renderQuestion() {
+            // Clear previous question content
+            questionDisplay.innerHTML = '';
+
+            const questionData = questions[currentQuestionIndex];
+            if (!questionData) {
+                console.error("No question data found for index:", currentQuestionIndex);
+                return;
+            }
+
+            // Create question text element
+            const questionText = document.createElement('p');
+            questionText.className = 'text-xl md:text-2xl font-medium text-blue-700 mb-6 text-center';
+            questionText.textContent = questionData.question;
+            questionDisplay.appendChild(questionText);
+
+            // Render input based on question type
+            if (questionData.type === 'radio') {
+                questionData.options.forEach(option => {
+                    const label = document.createElement('label');
+                    label.className = 'flex items-center p-3 mb-3 border border-blue-200 rounded-md cursor-pointer hover:bg-blue-50 transition-colors duration-200 shadow-sm hover:shadow-md';
+                    label.innerHTML = `
+                        <input type="radio" name="${questionData.id}" value="${option}" class="mr-3 h-5 w-5 text-blue-600 focus:ring-blue-500 rounded-full cursor-pointer" />
+                        <span class="text-lg text-gray-800">${option}</span>
+                    `;
+                    questionDisplay.appendChild(label);
+
+                    // Pre-select if an answer already exists for this question
+                    if (userAnswers[questionData.id] === option) {
+                        label.querySelector(`input[value="${option}"]`).checked = true;
+                    }
+
+                    // Add event listener for radio button changes
+                    label.querySelector('input').addEventListener('change', (event) => {
+                        userAnswers[questionData.id] = event.target.value;
+                    });
+                });
+            } else if (questionData.type === 'text') {
+                const textarea = document.createElement('textarea');
+                textarea.id = questionData.id; // Assign ID to textarea for easier access
+                textarea.className = 'w-full p-4 border border-blue-200 rounded-md focus:ring-2 focus:ring-blue-400 focus:border-transparent resize-y min-h-[100px] text-gray-800 transition-shadow duration-200 shadow-sm hover:shadow-md';
+                textarea.placeholder = questionData.placeholder;
+                textarea.rows = 4; // Default rows
+
+                // Populate with existing answer if available
+                if (userAnswers[questionData.id]) {
+                    textarea.value = userAnswers[questionData.id];
                 }
 
-                // Add event listener for radio button changes
-                label.querySelector('input').addEventListener('change', (event) => {
+                // Add event listener for text area input
+                textarea.addEventListener('input', (event) => {
                     userAnswers[questionData.id] = event.target.value;
                 });
-            });
-        } else if (questionData.type === 'text') {
-            const textarea = document.createElement('textarea');
-            textarea.id = questionData.id; // Assign ID to textarea for easier access
-            textarea.className = 'w-full p-4 border border-blue-200 rounded-md focus:ring-2 focus:ring-blue-400 focus:border-transparent resize-y min-h-[100px] text-gray-800 transition-shadow duration-200 shadow-sm hover:shadow-md';
-            textarea.placeholder = questionData.placeholder;
-            textarea.rows = 4; // Default rows
-
-            // Populate with existing answer if available
-            if (userAnswers[questionData.id]) {
-                textarea.value = userAnswers[questionData.id];
-            }
-
-            // Add event listener for text area input
-            textarea.addEventListener('input', (event) => {
-                userAnswers[questionData.id] = event.target.value;
-            });
-            questionDisplay.appendChild(textarea);
-        } else if (questionData.type === 'checkbox') {
-            // Initialize userAnswers[questionData.id] as an object for checkboxes
-            if (!userAnswers[questionData.id]) {
-                userAnswers[questionData.id] = {};
-            }
-
-            questionData.options.forEach(option => {
-                const optionValue = typeof option === 'string' ? option : option.value;
-                const hasTextInput = typeof option === 'object' && option.hasTextInput;
-                const placeholderText = hasTextInput && option.placeholder ? option.placeholder : '';
-
-                const containerDiv = document.createElement('div');
-                containerDiv.className = 'flex items-center p-3 mb-3 border border-blue-200 rounded-md cursor-pointer hover:bg-blue-50 transition-colors duration-200 shadow-sm hover:shadow-md';
-
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.name = questionData.id;
-                checkbox.value = optionValue;
-                checkbox.className = 'mr-3 h-5 w-5 text-blue-600 focus:ring-blue-500 rounded cursor-pointer'; // rounded for consistency
-
-                const span = document.createElement('span');
-                span.className = 'text-lg text-gray-800';
-                span.textContent = optionValue;
-
-                containerDiv.appendChild(checkbox);
-                containerDiv.appendChild(span);
-
-                let otherTextInput = null;
-                if (hasTextInput) {
-                    otherTextInput = document.createElement('input');
-                    otherTextInput.type = 'text';
-                    otherTextInput.className = 'other-input focus:ring-2 focus:ring-blue-400 focus:border-transparent';
-                    otherTextInput.placeholder = placeholderText;
-                    otherTextInput.disabled = !userAnswers[questionData.id][optionValue]; // Disable if not checked
-                    containerDiv.appendChild(otherTextInput);
-
-                    // If 'Other' was previously selected and had text, populate it
-                    if (userAnswers[questionData.id][optionValue]) {
-                        otherTextInput.value = userAnswers[questionData.id][optionValue];
-                        checkbox.checked = true; // Also check the checkbox
-                    }
-
-                    // Event listener for text input
-                    otherTextInput.addEventListener('input', (event) => {
-                        // Update the stored value for 'Other' option
-                        if (checkbox.checked) { // Only update if the checkbox is checked
-                            userAnswers[questionData.id][optionValue] = event.target.value.trim();
-                        }
-                    });
-                } else {
-                    // Pre-check if this option was previously selected
-                    if (userAnswers[questionData.id][optionValue]) {
-                        checkbox.checked = true;
-                    }
+                questionDisplay.appendChild(textarea);
+            } else if (questionData.type === 'checkbox') {
+                // Initialize userAnswers[questionData.id] as an object for checkboxes
+                if (!userAnswers[questionData.id]) {
+                    userAnswers[questionData.id] = {};
                 }
 
-                // Event listener for checkbox changes
-                checkbox.addEventListener('change', (event) => {
-                    if (event.target.checked) {
-                        userAnswers[questionData.id][optionValue] = hasTextInput ? (otherTextInput ? otherTextInput.value.trim() : true) : true;
-                        if (otherTextInput) otherTextInput.disabled = false;
+                questionData.options.forEach(option => {
+                    const optionValue = typeof option === 'string' ? option : option.value;
+                    const hasTextInput = typeof option === 'object' && option.hasTextInput;
+                    const placeholderText = hasTextInput && option.placeholder ? option.placeholder : '';
+
+                    const containerDiv = document.createElement('div');
+                    containerDiv.className = 'flex items-center p-3 mb-3 border border-blue-200 rounded-md cursor-pointer hover:bg-blue-50 transition-colors duration-200 shadow-sm hover:shadow-md';
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.name = questionData.id;
+                    checkbox.value = optionValue;
+                    checkbox.className = 'mr-3 h-5 w-5 text-blue-600 focus:ring-blue-500 rounded cursor-pointer'; // rounded for consistency
+
+                    const span = document.createElement('span');
+                    span.className = 'text-lg text-gray-800';
+                    span.textContent = optionValue;
+
+                    containerDiv.appendChild(checkbox);
+                    containerDiv.appendChild(span);
+
+                    let otherTextInput = null;
+                    if (hasTextInput) {
+                        otherTextInput = document.createElement('input');
+                        otherTextInput.type = 'text';
+                        otherTextInput.className = 'other-input focus:ring-2 focus:ring-blue-400 focus:border-transparent';
+                        otherTextInput.placeholder = placeholderText;
+                        otherTextInput.disabled = !userAnswers[questionData.id][optionValue]; // Disable if not checked
+                        containerDiv.appendChild(otherTextInput);
+
+                        // If 'Other' was previously selected and had text, populate it
+                        if (userAnswers[questionData.id][optionValue]) {
+                            otherTextInput.value = userAnswers[questionData.id][optionValue];
+                            checkbox.checked = true; // Also check the checkbox
+                        }
+
+                        // Event listener for text input
+                        otherTextInput.addEventListener('input', (event) => {
+                            // Update the stored value for 'Other' option
+                            if (checkbox.checked) { // Only update if the checkbox is checked
+                                userAnswers[questionData.id][optionValue] = event.target.value.trim();
+                            }
+                        });
                     } else {
-                        delete userAnswers[questionData.id][optionValue];
-                        if (otherTextInput) {
-                            otherTextInput.value = '';
-                            otherTextInput.disabled = true;
+                        // Pre-check if this option was previously selected
+                        if (userAnswers[questionData.id][optionValue]) {
+                            checkbox.checked = true;
                         }
                     }
-                    // For 'None' option in Q16, if selected, uncheck others.
-                    // And if any other is selected, uncheck 'None'.
-                    if (questionData.id === 'q16') {
-                        const noneCheckbox = document.querySelector(`input[name="${questionData.id}"][value="None"]`);
-                        if (noneCheckbox && event.target.value === 'None' && event.target.checked) {
-                            // If 'None' is checked, uncheck all others
-                            questionData.options.forEach(opt => {
-                                const val = typeof opt === 'string' ? opt : opt.value;
-                                if (val !== 'None') {
-                                    const otherCheckbox = document.querySelector(`input[name="${questionData.id}"][value="${val}"]`);
-                                    if (otherCheckbox && otherCheckbox.checked) {
-                                        otherCheckbox.checked = false;
-                                        delete userAnswers[questionData.id][val];
-                                        const otherTxtInput = otherCheckbox.closest('.flex').querySelector('.other-input');
-                                        if (otherTxtInput) otherTxtInput.disabled = true;
-                                    }
-                                }
-                            });
-                        } else if (noneCheckbox && event.target.value !== 'None' && event.target.checked) {
-                            // If any other option is checked, uncheck 'None'
-                            if (noneCheckbox.checked) {
-                                noneCheckbox.checked = false;
-                                delete userAnswers[questionData.id]['None'];
+
+                    // Event listener for checkbox changes
+                    checkbox.addEventListener('change', (event) => {
+                        if (event.target.checked) {
+                            userAnswers[questionData.id][optionValue] = hasTextInput ? (otherTextInput ? otherTextInput.value.trim() : true) : true;
+                            if (otherTextInput) otherTextInput.disabled = false;
+                        } else {
+                            delete userAnswers[questionData.id][optionValue];
+                            if (otherTextInput) {
+                                otherTextInput.value = '';
+                                otherTextInput.disabled = true;
                             }
                         }
+                        // For 'None' option in Q16, if selected, uncheck others.
+                        // And if any other is selected, uncheck 'None'.
+                        if (questionData.id === 'q16') {
+                            const noneCheckbox = document.querySelector(`input[name="${questionData.id}"][value="None"]`);
+                            if (noneCheckbox && event.target.value === 'None' && event.target.checked) {
+                                // If 'None' is checked, uncheck all others
+                                questionData.options.forEach(opt => {
+                                    const val = typeof opt === 'string' ? opt : opt.value;
+                                    if (val !== 'None') {
+                                        const otherCheckbox = document.querySelector(`input[name="${questionData.id}"][value="${val}"]`);
+                                        if (otherCheckbox && otherCheckbox.checked) {
+                                            otherCheckbox.checked = false;
+                                            delete userAnswers[questionData.id][val];
+                                            const otherTxtInput = otherCheckbox.closest('.flex').querySelector('.other-input');
+                                            if (otherTxtInput) otherTxtInput.disabled = true;
+                                        }
+                                    }
+                                });
+                            } else if (noneCheckbox && event.target.value !== 'None' && event.target.checked) {
+                                // If any other option is checked, uncheck 'None'
+                                if (noneCheckbox.checked) {
+                                    noneCheckbox.checked = false;
+                                    delete userAnswers[questionData.id]['None'];
+                                }
+                            }
+                        }
+                    });
+
+                    questionDisplay.appendChild(containerDiv);
+                });
+            } else if (questionData.type === 'range') {
+                const sliderContainer = document.createElement('div');
+                sliderContainer.className = 'flex flex-col items-center p-4 border border-blue-200 rounded-md shadow-sm hover:shadow-md transition-shadow duration-200';
+
+                const sliderInput = document.createElement('input');
+                sliderInput.type = 'range';
+                sliderInput.id = questionData.id;
+                sliderInput.min = questionData.min;
+                sliderInput.max = questionData.max;
+                sliderInput.step = questionData.step;
+                sliderInput.className = 'w-full h-8 cursor-pointer appearance-none bg-transparent'; /* Tailored for custom styling */
+
+                const sliderValueDisplay = document.createElement('span');
+                sliderValueDisplay.className = 'mt-3 text-2xl font-bold text-blue-700';
+
+                // Function to update slider value and background color
+                const updateSliderDisplay = (value) => {
+                    sliderValueDisplay.textContent = value;
+                    userAnswers[questionData.id] = value;
+                    // Dynamically change background color based on value (1-5)
+                    // blue-100 to blue-700 approx
+                    const blueShades = [
+                        '#DBEAFE', // blue-100
+                        '#BFDBFE', // blue-200
+                        '#93C5FD', // blue-300
+                        '#60A5FA', // blue-400
+                        '#3B82F6'  // blue-500
+                    ];
+                    // Map value (1-5) to array index (0-4)
+                    const colorIndex = parseInt(value, 10) - 1;
+                    if (blueShades[colorIndex]) {
+                        sliderContainer.style.backgroundColor = blueShades[colorIndex];
                     }
+                };
+
+                // Set initial slider value and display
+                const initialValue = userAnswers[questionData.id] || Math.round((questionData.min + questionData.max) / 2); // Default to middle or previous answer
+                sliderInput.value = initialValue;
+                updateSliderDisplay(initialValue);
+
+                sliderInput.addEventListener('input', (event) => {
+                    updateSliderDisplay(event.target.value);
                 });
 
-                questionDisplay.appendChild(containerDiv);
-            });
-        } else if (questionData.type === 'range') {
-            const sliderContainer = document.createElement('div');
-            sliderContainer.className = 'flex flex-col items-center p-4 border border-blue-200 rounded-md shadow-sm hover:shadow-md transition-shadow duration-200';
-
-            const sliderInput = document.createElement('input');
-            sliderInput.type = 'range';
-            sliderInput.id = questionData.id;
-            sliderInput.min = questionData.min;
-            sliderInput.max = questionData.max;
-            sliderInput.step = questionData.step;
-            sliderInput.className = 'w-full h-8 cursor-pointer appearance-none bg-transparent'; /* Tailored for custom styling */
-
-            const sliderValueDisplay = document.createElement('span');
-            sliderValueDisplay.className = 'mt-3 text-2xl font-bold text-blue-700';
-
-            // Function to update slider value and background color
-            const updateSliderDisplay = (value) => {
-                sliderValueDisplay.textContent = value;
-                userAnswers[questionData.id] = value;
-                // Dynamically change background color based on value (1-5)
-                // blue-100 to blue-700 approx
-                const blueShades = [
-                    '#DBEAFE', // blue-100
-                    '#BFDBFE', // blue-200
-                    '#93C5FD', // blue-300
-                    '#60A5FA', // blue-400
-                    '#3B82F6'  // blue-500
-                ];
-                // Map value (1-5) to array index (0-4)
-                const colorIndex = parseInt(value, 10) - 1;
-                if (blueShades[colorIndex]) {
-                    sliderContainer.style.backgroundColor = blueShades[colorIndex];
-                }
-            };
-
-            // Set initial slider value and display
-            const initialValue = userAnswers[questionData.id] || Math.round((questionData.min + questionData.max) / 2); // Default to middle or previous answer
-            sliderInput.value = initialValue;
-            updateSliderDisplay(initialValue);
-
-            sliderInput.addEventListener('input', (event) => {
-                updateSliderDisplay(event.target.value);
-            });
-
-            sliderContainer.appendChild(sliderInput);
-            sliderContainer.appendChild(sliderValueDisplay);
-            questionDisplay.appendChild(sliderContainer);
-        }
-
-
-        // Update button visibility based on current question index
-        prevBtn.disabled = currentQuestionIndex === 0;
-        if (currentQuestionIndex === questions.length - 1) {
-            nextBtn.classList.add('hidden');
-            submitBtn.classList.remove('hidden');
-        } else {
-            nextBtn.classList.remove('hidden');
-            submitBtn.classList.add('hidden');
-        }
-
-        // Update the completion bar whenever a new question is rendered
-        updateCompletionBar();
-    }
-
-    /**
-     * Navigates to the next question.
-     * Stores the current answer before moving.
-     */
-    function nextQuestion() {
-        const currentQuestionData = questions[currentQuestionIndex];
-
-        // Basic validation for radio buttons: ensure one is selected
-        if (currentQuestionData.type === 'radio') {
-            const selectedOption = userAnswers[currentQuestionData.id];
-            if (!selectedOption) {
-                showMessageModal("Please select an option before proceeding.");
-                return; // Prevent moving to next question
+                sliderContainer.appendChild(sliderInput);
+                sliderContainer.appendChild(sliderValueDisplay);
+                questionDisplay.appendChild(sliderContainer);
             }
-        }
-        // No specific validation for text or checkbox types (they can be empty)
-        // Sliders always have a value, so no specific validation needed here.
 
-        if (currentQuestionIndex < questions.length - 1) {
-            currentQuestionIndex++;
-            renderQuestion();
-        }
-    }
 
-    /**
-     * Navigates to the previous question.
-     */
-    function prevQuestion() {
-        if (currentQuestionIndex > 0) {
-            currentQuestionIndex--;
-            renderQuestion();
-        }
-    }
-
-    /**
-     * Saves survey data to Firestore.
-     * @param {object} data - The survey answers to save.
-     */
-    async function saveSurveyData(data) {
-        // Wait for userId to be populated from Firebase authentication
-        if (!userId) {
-            console.warn("userId not yet available, waiting for authentication...");
-            // Add a listener or a retry mechanism if this happens often.
-            // For now, we'll just show a message.
-            showMessageModal("Initializing Firebase. Please try submitting again in a moment.");
-            return;
-        }
-        try {
-            // Collection path: /artifacts/{appId}/users/{userId}/surveyResponses
-            // Using firebaseConfig.projectId for appId for external hosting
-            const surveyCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/surveyResponses`);
-            await addDoc(surveyCollectionRef, {
-                ...data,
-                timestamp: new Date().toISOString() // Add a timestamp
-            });
-            console.log("Survey data saved to Firestore!");
-            showMessageModal("Survey data saved successfully!");
-        } catch (error) {
-            console.error("Error saving survey data to Firestore:", error);
-            showMessageModal(`Error saving data: ${error.message}`);
-        }
-    }
-
-    /**
-     * Handles the survey submission.
-     * In a real application, this would send data to a backend.
-     */
-    function submitSurvey() {
-        console.log("Attempting to submit survey..."); 
-
-        // Prepare answers for submission - flatten checkbox object into array of strings
-        const finalAnswers = {};
-        for (const qId in userAnswers) {
-            const qType = questions.find(q => q.id === qId)?.type;
-            if (qType === 'checkbox') {
-                // Filter out unchecked 'Other' text inputs
-                finalAnswers[qId] = Object.entries(userAnswers[qId])
-                    .filter(([, value]) => value !== false && value !== '') // Filter out unselected or empty other text
-                    .map(([key, value]) => {
-                        if (value === true) return key;
-                        return `${key}: ${value}`; // For 'Other' with text
-                    });
-                // If no checkboxes are selected, ensure it's an empty array, not an empty object
-                if (finalAnswers[qId].length === 0) {
-                    finalAnswers[qId] = [];
-                }
+            // Update button visibility based on current question index
+            prevBtn.disabled = currentQuestionIndex === 0;
+            if (currentQuestionIndex === questions.length - 1) {
+                nextBtn.classList.add('hidden');
+                submitBtn.classList.remove('hidden');
             } else {
-                finalAnswers[qId] = userAnswers[qId];
+                nextBtn.classList.remove('hidden');
+                submitBtn.classList.add('hidden');
+            }
+
+            // Update the completion bar whenever a new question is rendered
+            updateCompletionBar();
+        }
+
+        /**
+         * Navigates to the next question.
+         * Stores the current answer before moving.
+         */
+        function nextQuestion() {
+            const currentQuestionData = questions[currentQuestionIndex];
+
+            // Basic validation for radio buttons: ensure one is selected
+            if (currentQuestionData.type === 'radio') {
+                const selectedOption = userAnswers[currentQuestionData.id];
+                if (!selectedOption) {
+                    showMessageModal("Please select an option before proceeding.");
+                    return; // Prevent moving to next question
+                }
+            }
+            // No specific validation for text or checkbox types (they can be empty)
+            // Sliders always have a value, so no specific validation needed here.
+
+            if (currentQuestionIndex < questions.length - 1) {
+                currentQuestionIndex++;
+                renderQuestion();
             }
         }
 
-        console.log("Survey submitted! Answers:", finalAnswers);
-
-        // Save data to Firestore
-        saveSurveyData(finalAnswers);
-
-        // Display the confirmation modal
-        if (confirmationModal) {
-            confirmationModal.style.display = 'flex';
-            confirmationModal.classList.remove('hidden'); 
-        } else {
-            console.error("Confirmation modal element not found!");
+        /**
+         * Navigates to the previous question.
+         */
+        function prevQuestion() {
+            if (currentQuestionIndex > 0) {
+                currentQuestionIndex--;
+                renderQuestion();
+            }
         }
 
-        // Hide survey container
-        document.getElementById('survey-container').classList.add('hidden');
-    }
+        /**
+         * Saves survey data to Firestore.
+         * @param {object} data - The survey answers to save.
+         */
+        async function saveSurveyData(data) {
+            // Wait for userId to be populated from Firebase authentication
+            if (!userId) {
+                console.warn("userId not yet available, waiting for authentication...");
+                // Add a listener or a retry mechanism if this happens often.
+                // For now, we'll just show a message.
+                showMessageModal("Initializing Firebase. Please try submitting again in a moment.");
+                return;
+            }
+            try {
+                // Collection path: /artifacts/{appId}/users/{userId}/surveyResponses
+                // Using firebaseConfig.projectId for appId for external hosting
+                const surveyCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/surveyResponses`);
+                await addDoc(surveyCollectionRef, {
+                    ...data,
+                    timestamp: new Date().toISOString() // Add a timestamp
+                });
+                console.log("Survey data saved to Firestore!");
+                showMessageModal("Survey data saved successfully!");
+            } catch (error) {
+                console.error("Error saving survey data to Firestore:", error);
+                showMessageModal(`Error saving data: ${error.message}`);
+            }
+        }
 
-    // Event Listeners
-    nextBtn.addEventListener('click', nextQuestion);
-    prevBtn.addEventListener('click', prevQuestion);
-    submitBtn.addEventListener('click', submitSurvey);
-    closeModalBtn.addEventListener('click', () => {
-        confirmationModal.classList.add('hidden');
-        confirmationModal.style.display = 'none'; // Ensure it's hidden properly
-        // Optionally, reset the survey or redirect the user
-        // window.location.reload(); // To reset the page
-    });
+        /**
+         * Handles the survey submission.
+         * In a real application, this would send data to a backend.
+         */
+        function submitSurvey() {
+            console.log("Attempting to submit survey..."); 
 
-    // Initial render
-    renderQuestion();
-</script>
+            // Prepare answers for submission - flatten checkbox object into array of strings
+            const finalAnswers = {};
+            for (const qId in userAnswers) {
+                const qType = questions.find(q => q.id === qId)?.type;
+                if (qType === 'checkbox') {
+                    // Filter out unchecked 'Other' text inputs
+                    finalAnswers[qId] = Object.entries(userAnswers[qId])
+                        .filter(([, value]) => value !== false && value !== '') // Filter out unselected or empty other text
+                        .map(([key, value]) => {
+                            if (value === true) return key;
+                            return `${key}: ${value}`; // For 'Other' with text
+                        });
+                    // If no checkboxes are selected, ensure it's an empty array, not an empty object
+                    if (finalAnswers[qId].length === 0) {
+                        finalAnswers[qId] = [];
+                    }
+                } else {
+                    finalAnswers[qId] = userAnswers[qId];
+                }
+            }
+
+            console.log("Survey submitted! Answers:", finalAnswers);
+
+            // Save data to Firestore
+            saveSurveyData(finalAnswers);
+
+            // Display the confirmation modal
+            if (confirmationModal) {
+                confirmationModal.style.display = 'flex';
+                confirmationModal.classList.remove('hidden'); 
+            } else {
+                console.error("Confirmation modal element not found!");
+            }
+
+            // Hide survey container
+            document.getElementById('survey-container').classList.add('hidden');
+        }
+
+        // Event Listeners
+        nextBtn.addEventListener('click', nextQuestion);
+        prevBtn.addEventListener('click', prevQuestion);
+        submitBtn.addEventListener('click', submitSurvey);
+        closeModalBtn.addEventListener('click', () => {
+            confirmationModal.classList.add('hidden');
+            confirmationModal.style.display = 'none'; // Ensure it's hidden properly
+            // Optionally, reset the survey or redirect the user
+            // window.location.reload(); // To reset the page
+        });
+
+        // Initial render
+        renderQuestion();
+    </script>
 </body>
 </html>
